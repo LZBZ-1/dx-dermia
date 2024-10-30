@@ -38,14 +38,23 @@ public class JwtAuthenticationFilter implements WebFilter {
         String jwt = authHeader.substring(7);
         String username = jwtService.extractUsername(jwt);
 
-        if (username != null && jwtService.isTokenValid(jwt, username)) {
-            UsernamePasswordAuthenticationToken authentication =
-                    new UsernamePasswordAuthenticationToken(username, null, Collections.emptyList());
-
-            return chain.filter(exchange)
-                    .contextWrite(ReactiveSecurityContextHolder.withAuthentication(authentication));
+        if (username == null) {
+            return chain.filter(exchange);
         }
 
-        return chain.filter(exchange);
+        return jwtService.isTokenValid(jwt, username)
+                .flatMap(isValid -> {
+                    if (isValid) {
+                        UsernamePasswordAuthenticationToken authentication =
+                                new UsernamePasswordAuthenticationToken(
+                                        username,
+                                        null,
+                                        Collections.emptyList()
+                                );
+                        return chain.filter(exchange)
+                                .contextWrite(ReactiveSecurityContextHolder.withAuthentication(authentication));
+                    }
+                    return chain.filter(exchange);
+                });
     }
 }

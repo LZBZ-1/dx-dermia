@@ -27,6 +27,7 @@ public class AuthService {
     private final UserRoleRepository userRoleRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final TokenManagementService tokenManagementService;
 
     public Mono<AuthResponseDTO> login(AuthRequestDTO request) {
         log.info("Attempting login for user: {}", request.getUsername());
@@ -92,5 +93,19 @@ public class AuthService {
                 .email(user.getEmail())
                 .roles(roles)
                 .build();
+    }
+
+    public Mono<Void> logout(String token, String username) {
+        log.info("Processing logout for user: {}", username);
+        return tokenManagementService.blacklistToken(token, username)
+                .doOnSuccess(v -> log.info("Logout successful for user: {}", username))
+                .doOnError(e -> log.error("Logout failed for user: {}", username, e));
+    }
+
+    public Mono<Void> logoutAllSessions(String username) {
+        log.info("Processing logout for all sessions of user: {}", username);
+        return tokenManagementService.blacklistAllUserTokens(username)
+                .doOnSuccess(v -> log.info("All sessions logged out for user: {}", username))
+                .doOnError(e -> log.error("Logout all sessions failed for user: {}", username, e));
     }
 }

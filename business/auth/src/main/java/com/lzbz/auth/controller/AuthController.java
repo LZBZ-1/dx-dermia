@@ -4,14 +4,13 @@ import com.lzbz.auth.dto.AuthRequestDTO;
 import com.lzbz.auth.dto.AuthResponseDTO;
 import com.lzbz.auth.dto.RegisterRequestDTO;
 import com.lzbz.auth.service.AuthService;
+import com.lzbz.auth.service.TokenManagementService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 
 @RestController
@@ -21,6 +20,7 @@ import reactor.core.publisher.Mono;
 public class AuthController {
 
     private final AuthService authService;
+    private final TokenManagementService tokenManagementService;
 
     @PostMapping("/login")
     public Mono<ResponseEntity<AuthResponseDTO>> login(@Valid @RequestBody AuthRequestDTO request) {
@@ -40,5 +40,52 @@ public class AuthController {
                 .doOnSuccess(response -> log.info("Registration successful for user: {}", request.getUsername()))
                 .doOnError(error -> log.error("Registration failed for user: {}, error: {}",
                         request.getUsername(), error.getMessage()));
+    }
+
+    @PostMapping("/logout")
+    public Mono<ResponseEntity<Void>> logout(
+            @RequestHeader("Authorization") String authHeader,
+            Authentication authentication) {
+
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            String token = authHeader.substring(7);
+            String username = authentication.getName();
+
+            log.info("Logout attempt for user: {}", username);
+
+            return authService.logout(token, username)
+                    .then(Mono.just(ResponseEntity.ok().<Void>build()))
+                    .doOnSuccess(v -> log.info("Logout successful for user: {}", username))
+                    .doOnError(error -> log.error("Logout failed for user: {}, error: {}",
+                            username, error.getMessage()));
+        }
+
+        return Mono.just(ResponseEntity.badRequest().build());
+    }
+
+    @PostMapping("/logout-all")
+    public Mono<ResponseEntity<Void>> logoutAllSessions(Authentication authentication) {
+        String username = authentication.getName();
+        log.info("Logout all sessions attempt for user: {}", username);
+
+        return authService.logoutAllSessions(username)
+                .then(Mono.just(ResponseEntity.ok().<Void>build()))
+                .doOnSuccess(v -> log.info("Logout all sessions successful for user: {}", username))
+                .doOnError(error -> log.error("Logout all sessions failed for user: {}, error: {}",
+                        username, error.getMessage()));
+    }
+
+    @PostMapping("/validate")
+    public Mono<ResponseEntity<Boolean>> validateToken(
+            @RequestHeader("Authorization") String authHeader) {
+
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            String token = authHeader.substring(7);
+            return tokenManagementService.validateToken(token)
+                    .map(ResponseEntity::ok)
+                    .doOnError(error -> log.error("Token validation error: {}", error.getMessage()));
+        }
+
+        return Mono.just(ResponseEntity.badRequest().body(false));
     }
 }
