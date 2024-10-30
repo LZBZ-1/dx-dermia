@@ -19,6 +19,7 @@ public class TokenManagementService {
     private final TokenProperties tokenProperties;
     private static final String TOKEN_BLACKLIST_PREFIX = "token:blacklist:";
     private static final String USER_TOKENS_PREFIX = "user:tokens:";
+    private static final String REFRESH_TOKEN_PREFIX = "refresh:token:";
 
     public Mono<Void> blacklistToken(String token, String username) {
         String blacklistKey = TOKEN_BLACKLIST_PREFIX + token;
@@ -88,5 +89,56 @@ public class TokenManagementService {
                     log.error("Error validating token: {}, error: {}", token, e.getMessage());
                     return Mono.just(false);
                 });
+    }
+
+    // Nuevos métodos para refresh token
+    public Mono<Boolean> saveRefreshToken(String refreshToken, String username) {
+        String key = REFRESH_TOKEN_PREFIX + refreshToken;
+        return redisTemplate.opsForValue()
+                .set(key, username, Duration.ofMillis(tokenProperties.getRefreshTokenExpirationMs()))
+                .doOnSuccess(success -> log.debug("Refresh token saved for user: {}", username))
+                .doOnError(e -> log.error("Error saving refresh token for user: {}, error: {}",
+                        username, e.getMessage()))
+                .retryWhen(Retry.backoff(3, Duration.ofMillis(100))
+                        .doBeforeRetry(signal -> log.warn("Retrying Redis operation after error: {}",
+                                signal.failure().getMessage())));
+    }
+
+    public Mono<Boolean> isRefreshTokenValid(String refreshToken) {
+        String key = REFRESH_TOKEN_PREFIX + refreshToken;
+        return redisTemplate.hasKey(key)
+                .doOnSuccess(exists -> {
+                    if (!exists) {
+                        log.debug("Refresh token not found or expired: {}", refreshToken);
+                    }
+                })
+                .doOnError(e -> log.error("Error validating refresh token: {}, error: {}",
+                        refreshToken, e.getMessage()))
+                .retryWhen(Retry.backoff(2, Duration.ofMillis(100)));
+    }
+
+    public Mono<Void> invalidateRefreshToken(String refreshToken) {
+        String key = REFRESH_TOKEN_PREFIX + refreshToken;
+        return redisTemplate.delete(key)
+                .doOnSuccess(success -> log.debug("Refresh token invalidated: {}", refreshToken))
+                .doOnError(e -> log.error("Error invalidating refresh token: {}, error: {}",
+                        refreshToken, e.getMessage()))
+                .retryWhen(Retry.backoff(3, Duration.ofMillis(100))
+                        .doBeforeRetry(signal -> log.warn("Retrying Redis operation after error: {}",
+                                signal.failure().getMessage())))
+                .then();
+    }
+
+    public Mono<String> getUsernameFromRefreshToken(String refreshToken) {
+        String key = REFRESH_TOKEN_PREFIX + refreshToken;
+        return redisTemplate.opsForValue().get(key)
+                .doOnSuccess(username -> {
+                    if (username != null) {
+                        log.debug("Found username for refresh token: {}", username);
+                    }
+                })
+                .doOnError(e -> log.error("Error getting username from refresh token: {}, error: {}",
+                        refreshToken, e.getMessage()))
+                .retryWhen(Retry.backoff(2, Duration.ofMillis(100)));
     }
 }

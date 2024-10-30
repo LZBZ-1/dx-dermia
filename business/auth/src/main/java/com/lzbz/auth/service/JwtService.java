@@ -26,6 +26,9 @@ public class JwtService {
     @Value("${jwt.expiration}")
     private Long jwtExpiration;
 
+    @Value("${jwt.refresh-expiration}")
+    private Long refreshExpiration;
+
     private final TokenManagementService tokenManagementService;
 
     public String generateToken(String username) {
@@ -43,6 +46,19 @@ public class JwtService {
                 .compact();
     }
 
+    public String generateRefreshToken(String username) {
+        log.debug("Generating refresh token for user: {}", username);
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("type", "refresh");
+        return Jwts.builder()
+                .setClaims(claims)
+                .setSubject(username)
+                .setIssuedAt(new Date(System.currentTimeMillis()))
+                .setExpiration(new Date(System.currentTimeMillis() + refreshExpiration))
+                .signWith(getSignInKey(), SignatureAlgorithm.HS256)
+                .compact();
+    }
+
     public String extractUsername(String token) {
         return extractClaim(token, Claims::getSubject);
     }
@@ -56,6 +72,29 @@ public class JwtService {
                     final String extractedUsername = extractUsername(token);
                     return (extractedUsername.equals(username)) && !isTokenExpired(token);
                 });
+    }
+
+    public Mono<Boolean> validateRefreshToken(String token) {
+        return Mono.just(token)
+                .filter(t -> !isTokenExpired(t))
+                .filter(this::isRefreshToken)
+                .flatMap(tokenManagementService::isRefreshTokenValid)
+                .defaultIfEmpty(false)
+                .doOnSuccess(valid -> {
+                    if (!valid) {
+                        log.debug("Refresh token validation failed: {}", token);
+                    }
+                })
+                .doOnError(e -> log.error("Error validating refresh token: {}", e.getMessage()));
+    }
+
+    private boolean isRefreshToken(String token) {
+        try {
+            Claims claims = extractAllClaims(token);
+            return "refresh".equals(claims.get("type"));
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     private boolean isTokenExpired(String token) {
@@ -81,5 +120,13 @@ public class JwtService {
 
     private Key getSignInKey() {
         return Keys.hmacShaKeyFor(secret.getBytes());
+    }
+
+    public long getExpirationTime() {
+        return jwtExpiration;
+    }
+
+    public long getRefreshExpirationTime() {
+        return refreshExpiration;
     }
 }

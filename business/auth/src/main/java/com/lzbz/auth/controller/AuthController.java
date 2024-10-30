@@ -1,8 +1,7 @@
 package com.lzbz.auth.controller;
 
-import com.lzbz.auth.dto.AuthRequestDTO;
-import com.lzbz.auth.dto.AuthResponseDTO;
-import com.lzbz.auth.dto.RegisterRequestDTO;
+import com.lzbz.auth.annotation.RateLimit;
+import com.lzbz.auth.dto.*;
 import com.lzbz.auth.service.AuthService;
 import com.lzbz.auth.service.TokenManagementService;
 import jakarta.validation.Valid;
@@ -23,6 +22,7 @@ public class AuthController {
     private final TokenManagementService tokenManagementService;
 
     @PostMapping("/login")
+    @RateLimit(type = "login")
     public Mono<ResponseEntity<AuthResponseDTO>> login(@Valid @RequestBody AuthRequestDTO request) {
         log.info("Login attempt for user: {}", request.getUsername());
         return authService.login(request)
@@ -33,6 +33,7 @@ public class AuthController {
     }
 
     @PostMapping("/register")
+    @RateLimit(type = "register")
     public Mono<ResponseEntity<AuthResponseDTO>> register(@Valid @RequestBody RegisterRequestDTO request) {
         log.info("Registration attempt for user: {}", request.getUsername());
         return authService.register(request)
@@ -87,5 +88,12 @@ public class AuthController {
         }
 
         return Mono.just(ResponseEntity.badRequest().body(false));
+    }
+
+    @PostMapping("/refresh")
+    public Mono<ResponseEntity<TokenResponse>> refreshToken(@Valid @RequestBody RefreshTokenDto request) {
+        return authService.refreshToken(request.getRefreshToken())
+                .map(ResponseEntity::ok)
+                .defaultIfEmpty(ResponseEntity.badRequest().build());
     }
 }

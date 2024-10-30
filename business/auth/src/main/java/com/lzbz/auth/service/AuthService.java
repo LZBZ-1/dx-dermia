@@ -3,6 +3,7 @@ package com.lzbz.auth.service;
 import com.lzbz.auth.dto.AuthRequestDTO;
 import com.lzbz.auth.dto.AuthResponseDTO;
 import com.lzbz.auth.dto.RegisterRequestDTO;
+import com.lzbz.auth.dto.TokenResponse;
 import com.lzbz.auth.model.Role;
 import com.lzbz.auth.model.User;
 import com.lzbz.auth.model.UserRole;
@@ -107,5 +108,24 @@ public class AuthService {
         return tokenManagementService.blacklistAllUserTokens(username)
                 .doOnSuccess(v -> log.info("All sessions logged out for user: {}", username))
                 .doOnError(e -> log.error("Logout all sessions failed for user: {}", username, e));
+    }
+
+    public Mono<TokenResponse> refreshToken(String refreshToken) {
+        return Mono.just(refreshToken)
+                .flatMap(token -> jwtService.validateRefreshToken(token)
+                        .filter(valid -> valid)
+                        .map(valid -> jwtService.extractUsername(token))
+                        .flatMap(username -> {
+                            String newAccessToken = jwtService.generateToken(username);
+                            String newRefreshToken = jwtService.generateRefreshToken(username);
+
+                            return tokenManagementService.saveRefreshToken(newRefreshToken, username)
+                                    .thenReturn(TokenResponse.builder()
+                                            .accessToken(newAccessToken)
+                                            .refreshToken(newRefreshToken)
+                                            .expiresIn(jwtService.getExpirationTime())
+                                            .build());
+                        }))
+                .switchIfEmpty(Mono.error(new RuntimeException("Invalid refresh token")));
     }
 }
