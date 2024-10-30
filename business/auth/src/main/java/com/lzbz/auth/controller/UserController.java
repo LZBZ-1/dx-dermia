@@ -2,6 +2,7 @@ package com.lzbz.auth.controller;
 
 import com.lzbz.auth.dto.UserDTO;
 import com.lzbz.auth.service.UserService;
+import com.lzbz.auth.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -39,5 +40,15 @@ public class UserController {
                         log.info("User not found with id: {}", id);
                     }
                 });
+    }
+
+    @GetMapping("/by-username/{username}")
+    public Mono<ResponseEntity<Long>> getUserIdByUsername(@PathVariable String username) {
+        log.info("Received request to get userId for username: {}", username);
+        return userService.getUserIdByUsername(username)
+                .map(ResponseEntity::ok)
+                .defaultIfEmpty(ResponseEntity.notFound().build())
+                .doOnError(error -> log.error("Error processing request: {}", error.getMessage()))
+                .onErrorResume(error -> Mono.just(ResponseEntity.internalServerError().build()));
     }
 }

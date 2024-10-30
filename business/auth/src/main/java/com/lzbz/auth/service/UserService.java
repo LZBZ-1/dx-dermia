@@ -2,6 +2,7 @@ package com.lzbz.auth.service;
 
 import com.lzbz.auth.dto.UserDTO;
 import com.lzbz.auth.model.Role;
+import com.lzbz.auth.model.User;
 import com.lzbz.auth.repository.RoleRepository;
 import com.lzbz.auth.repository.UserRepository;
 import com.lzbz.auth.repository.UserRoleRepository;
@@ -54,5 +55,14 @@ public class UserService {
                 .flatMap(userRole -> roleRepository.findById(userRole.getRoleId()))
                 .map(Role::getRoleName)
                 .collectList();
+    }
+
+    public Mono<Long> getUserIdByUsername(String username) {
+        log.info("Getting userId for username: {}", username);
+        return userRepository.findByUsername(username)
+                .map(User::getUserId)
+                .doOnSuccess(userId -> log.debug("Found userId: {} for username: {}", userId, username))
+                .doOnError(error -> log.error("Error finding userId for username {}: {}",
+                        username, error.getMessage()));
     }
 }

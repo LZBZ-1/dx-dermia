@@ -2,6 +2,7 @@ package com.lzbz.auth.controller;
 
 import com.lzbz.auth.annotation.RateLimit;
 import com.lzbz.auth.dto.*;
+import com.lzbz.auth.repository.UserRepository;
 import com.lzbz.auth.service.AuthService;
 import com.lzbz.auth.service.TokenManagementService;
 import jakarta.validation.Valid;
@@ -12,6 +13,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
+import com.lzbz.auth.model.User;
 
 @RestController
 @RequestMapping("/api/auth")

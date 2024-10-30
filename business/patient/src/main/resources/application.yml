@@ -1,0 +1,72 @@
+# application.yml
+spring:
+  application:
+    name: patient
+  r2dbc:
+    url: r2dbc:postgresql://34.44.97.230:5432/patient_service?sslMode=require
+    username: postgres
+    password: IS3-2024-2
+    pool:
+      initial-size: 5
+      max-size: 20
+      max-idle-time: 30m
+      max-acquire-time: 30s
+      max-create-connection-time: 30s
+    properties:
+      ssl: true
+      sslMode: require
+  main:
+    web-application-type: reactive
+
+server:
+  port: 8081
+
+# JWT y Auth Service Configuration
+jwt:
+  secret: J6q+WwwaDNkDEppfNIYmFIy4cOr3wlBPLGTOgM1Wsug=
+  expiration: 86400000
+
+auth:
+  service:
+    url: http://localhost:8080
+
+# Eureka Configuration
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: ${EUREKA_SERVER:http://localhost:8761/eureka}
+    register-with-eureka: true
+    healthcheck:
+      enabled: true
+    fetch-registry: true
+  instance:
+    prefer-ip-address: true
+    hostname: ${HOSTNAME:localhost}
+
+# Management Configuration
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+  endpoint:
+    health:
+      show-details: always
+    env:
+      enabled: true
+
+# Logging Configuration
+logging:
+  level:
+    root: WARN
+    com.lzbz.client: DEBUG
+    com.lzbz.auth: INFO
+    org.springframework:
+      r2dbc: WARN
+      security: ERROR
+    io:
+      r2dbc.postgresql: WARN
+      netty: WARN
+    reactor.netty: WARN
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
