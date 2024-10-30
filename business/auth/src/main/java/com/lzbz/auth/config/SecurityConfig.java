@@ -29,7 +29,7 @@ public class SecurityConfig {
                 .authenticationManager(authenticationManager)
                 .securityContextRepository(securityContextRepository)
                 .authorizeExchange(exchanges -> exchanges
-                        .pathMatchers("/api/auth/register", "/api/auth/login").permitAll()
+                        .pathMatchers("/api/auth/register", "/api/auth/login", "/api/auth/refresh").permitAll()
                         .pathMatchers("/api/public/**").permitAll()
                         .anyExchange().authenticated()
                 )

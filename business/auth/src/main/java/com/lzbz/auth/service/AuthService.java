@@ -87,12 +87,19 @@ public class AuthService {
     }
 
     private AuthResponseDTO createAuthResponse(User user, List<String> roles) {
-        String token = jwtService.generateToken(user.getUsername());
+        String accessToken = jwtService.generateToken(user.getUsername());
+        String refreshToken = jwtService.generateRefreshToken(user.getUsername());
+
+        // Guardar el refresh token en Redis
+        tokenManagementService.saveRefreshToken(refreshToken, user.getUsername()).subscribe();
+
         return AuthResponseDTO.builder()
-                .token(token)
+                .token(accessToken)
+                .refreshToken(refreshToken)
                 .username(user.getUsername())
                 .email(user.getEmail())
                 .roles(roles)
+                .expiresIn(jwtService.getExpirationTime())
                 .build();
     }
 
@@ -110,22 +117,25 @@ public class AuthService {
                 .doOnError(e -> log.error("Logout all sessions failed for user: {}", username, e));
     }
 
-    public Mono<TokenResponse> refreshToken(String refreshToken) {
-        return Mono.just(refreshToken)
-                .flatMap(token -> jwtService.validateRefreshToken(token)
-                        .filter(valid -> valid)
-                        .map(valid -> jwtService.extractUsername(token))
-                        .flatMap(username -> {
-                            String newAccessToken = jwtService.generateToken(username);
-                            String newRefreshToken = jwtService.generateRefreshToken(username);
+    public Mono<AuthResponseDTO> refreshToken(String refreshToken) {
+        return jwtService.validateRefreshToken(refreshToken)
+                .filter(valid -> valid)
+                .flatMap(valid -> tokenManagementService.getUsernameFromRefreshToken(refreshToken))
+                .flatMap(username -> {
+                    // Generar nuevos tokens
+                    String newAccessToken = jwtService.generateToken(username);
+                    String newRefreshToken = jwtService.generateRefreshToken(username);
 
-                            return tokenManagementService.saveRefreshToken(newRefreshToken, username)
-                                    .thenReturn(TokenResponse.builder()
-                                            .accessToken(newAccessToken)
-                                            .refreshToken(newRefreshToken)
-                                            .expiresIn(jwtService.getExpirationTime())
-                                            .build());
-                        }))
+                    // Invalidar el refresh token anterior y guardar el nuevo
+                    return tokenManagementService.invalidateRefreshToken(refreshToken)
+                            .then(tokenManagementService.saveRefreshToken(newRefreshToken, username))
+                            .thenReturn(AuthResponseDTO.builder()
+                                    .token(newAccessToken)
+                                    .refreshToken(newRefreshToken)
+                                    .username(username)
+                                    .expiresIn(jwtService.getExpirationTime())
+                                    .build());
+                })
                 .switchIfEmpty(Mono.error(new RuntimeException("Invalid refresh token")));
     }
 }
