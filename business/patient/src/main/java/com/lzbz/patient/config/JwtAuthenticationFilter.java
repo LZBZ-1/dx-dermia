@@ -1,5 +1,6 @@
 package com.lzbz.patient.config;
 
+import io.micrometer.common.lang.NonNullApi;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
@@ -13,6 +14,7 @@ import reactor.core.publisher.Mono;
 
 import java.util.Collections;
 
+@NonNullApi
 @Component
 @RequiredArgsConstructor
 @Slf4j

@@ -70,13 +70,13 @@ public class JwtService {
                         return false;
                     }
                     final String extractedUsername = extractUsername(token);
-                    return (extractedUsername.equals(username)) && !isTokenExpired(token);
+                    return (extractedUsername.equals(username)) && isTokenExpired(token);
                 });
     }
 
     public Mono<Boolean> validateRefreshToken(String token) {
         return Mono.just(token)
-                .filter(t -> !isTokenExpired(t))
+                .filter(this::isTokenExpired)
                 .filter(this::isRefreshToken)
                 .flatMap(tokenManagementService::isRefreshTokenValid)
                 .defaultIfEmpty(false)
@@ -98,7 +98,7 @@ public class JwtService {
     }
 
     private boolean isTokenExpired(String token) {
-        return extractExpiration(token).before(new Date());
+        return !extractExpiration(token).before(new Date());
     }
 
     private Date extractExpiration(String token) {

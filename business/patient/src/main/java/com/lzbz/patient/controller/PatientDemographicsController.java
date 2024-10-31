@@ -13,6 +13,8 @@ import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.time.ZonedDateTime;
+
 @RestController
 @RequestMapping("/api/patients")
 @RequiredArgsConstructor
@@ -48,20 +50,22 @@ public class PatientDemographicsController {
                 .defaultIfEmpty(ResponseEntity.notFound().build());
     }
 
-    @PutMapping("/{patientId}")
-    public Mono<ResponseEntity<?>> updatePatient(
-            @PathVariable Long patientId,
+    @PutMapping("/me")
+    public Mono<ResponseEntity<PatientDemographics>> updateMyPatientInfo(
             @Valid @RequestBody PatientDemographics patient,
             Authentication authentication) {
         return authServiceClient.getUserIdFromUsername(authentication.getName())
-                .flatMap(userId -> patientService.findByUserId(userId)
-                        .flatMap(existing -> {
-                            if (!existing.getPatientId().equals(patientId)) {
-                                return Mono.just(ResponseEntity.status(HttpStatus.FORBIDDEN).build());
-                            }
-                            return patientService.updatePatient(patientId, patient)
-                                    .map(ResponseEntity::ok);
-                        }))
+                .flatMap(userId -> patientService.findByUserId(userId))
+                .flatMap(existingPatient -> {
+                    // Mantenemos los campos que no deben cambiar
+                    patient.setPatientId(existingPatient.getPatientId());
+                    patient.setUserId(existingPatient.getUserId());  // Importante: mantener el userId
+                    patient.setCreatedAt(existingPatient.getCreatedAt());
+                    patient.setUpdatedAt(ZonedDateTime.now());
+
+                    return patientService.updatePatient(existingPatient.getPatientId(), patient);
+                })
+                .map(ResponseEntity::ok)
                 .defaultIfEmpty(ResponseEntity.notFound().build());
     }
 

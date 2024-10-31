@@ -27,11 +27,11 @@ public class PatientContactService {
         return contactInfoRepository.findByPatientId(patientId)
                 .flatMap(existing -> {
                     contactInfo.setContactId(existing.getContactId());
+                    contactInfo.setPatientId(patientId);
                     contactInfo.setCreatedAt(existing.getCreatedAt());
                     contactInfo.setUpdatedAt(ZonedDateTime.now());
                     return contactInfoRepository.save(contactInfo);
-                })
-                .doOnSuccess(c -> log.info("Updated contact info for patient ID: {}", patientId));
+                });
     }
 
     public Mono<PatientContactInfo> getContactInfo(Long patientId) {

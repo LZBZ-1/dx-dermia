@@ -33,13 +33,14 @@ public class PatientDemographicsService {
     public Mono<PatientDemographics> updatePatient(Long patientId, PatientDemographics patient) {
         return patientDemographicsRepository.findById(patientId)
                 .flatMap(existing -> {
+                    // Asegurarse de mantener estos campos
                     patient.setPatientId(patientId);
+                    patient.setUserId(existing.getUserId());
                     patient.setCreatedAt(existing.getCreatedAt());
                     patient.setUpdatedAt(ZonedDateTime.now());
+
                     return patientDemographicsRepository.save(patient);
-                })
-                .doOnSuccess(p -> log.info("Updated patient with ID: {}", p.getPatientId()))
-                .doOnError(e -> log.error("Error updating patient: {}", e.getMessage()));
+                });
     }
 
     public Mono<PatientDemographics> findByUserId(Long userId) {
@@ -51,4 +52,6 @@ public class PatientDemographicsService {
         return patientDemographicsRepository.findByLastNameContainingIgnoreCase(lastName)
                 .doOnComplete(() -> log.debug("Completed search for lastName: {}", lastName));
     }
+
+    
 }

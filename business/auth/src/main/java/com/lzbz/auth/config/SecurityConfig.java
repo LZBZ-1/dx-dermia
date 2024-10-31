@@ -26,12 +26,14 @@ public class SecurityConfig {
                 .csrf(ServerHttpSecurity.CsrfSpec::disable)
                 .formLogin(ServerHttpSecurity.FormLoginSpec::disable)
                 .httpBasic(ServerHttpSecurity.HttpBasicSpec::disable)
+                .authenticationManager(authenticationManager)
+                .securityContextRepository(securityContextRepository)
                 .authorizeExchange(exchanges -> exchanges
                         .pathMatchers(
                                 "/api/auth/register",
                                 "/api/auth/login",
                                 "/api/auth/refresh",
-                                "/api/users/by-username/**",  // Permitir este endpoint
+                                "/api/users/by-username/**",
                                 "/api/public/**"
                         ).permitAll()
                         .anyExchange().authenticated()

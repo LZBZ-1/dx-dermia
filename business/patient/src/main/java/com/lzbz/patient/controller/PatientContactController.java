@@ -45,4 +45,15 @@ public class PatientContactController {
                 .map(ResponseEntity::ok)
                 .defaultIfEmpty(ResponseEntity.notFound().build());
     }
+
+    @PutMapping("/me")
+    public Mono<ResponseEntity<PatientContactInfo>> updateMyContactInfo(
+            @Valid @RequestBody PatientContactInfo contactInfo,
+            Authentication authentication) {
+        return authServiceClient.getUserIdFromUsername(authentication.getName())
+                .flatMap(patientService::findByUserId)
+                .flatMap(patient -> contactService.updateContactInfo(patient.getPatientId(), contactInfo))
+                .map(ResponseEntity::ok)
+                .defaultIfEmpty(ResponseEntity.notFound().build());
+    }
 }

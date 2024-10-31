@@ -13,6 +13,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
+import com.lzbz.auth.dto.TokenValidationResult;
 import com.lzbz.auth.model.User;
 
 @RestController
@@ -72,10 +73,28 @@ public class AuthController {
         String username = authentication.getName();
         log.info("Logout all sessions attempt for user: {}", username);
 
-        return authService.logoutAllSessions(username)
-                .then(Mono.just(ResponseEntity.ok().<Void>build()))
-                .doOnSuccess(v -> log.info("Logout all sessions successful for user: {}", username))
-                .doOnError(error -> log.error("Logout all sessions failed for user: {}, error: {}",
+        return tokenManagementService.hasActiveTokens(username)
+                .flatMap(hasActive -> {
+                    log.debug("Active sessions before logout: {}", hasActive);
+                    if (!hasActive) {
+                        return Mono.just(ResponseEntity.ok().<Void>build());
+                    }
+                    return authService.logoutAllSessions(username)
+                            .then(tokenManagementService.hasActiveTokens(username))
+                            .map(activeAfter -> {
+                                if (activeAfter) {
+                                    log.error("Failed to logout all sessions, some sessions still active");
+                                    return ResponseEntity.internalServerError().<Void>build();
+                                }
+                                return ResponseEntity.ok().<Void>build();
+                            });
+                })
+                .doOnSuccess(response -> {
+                    if (response.getStatusCode().is2xxSuccessful()) {
+                        log.info("Successfully logged out all sessions for user: {}", username);
+                    }
+                })
+                .doOnError(error -> log.error("Error during logout all sessions for user: {}, error: {}",
                         username, error.getMessage()));
     }
 
@@ -102,5 +121,42 @@ public class AuthController {
                     log.error("Error refreshing token: {}", e.getMessage());
                     return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).build());
                 });
+    }
+
+    @GetMapping("/sessions/active")
+    public Mono<ResponseEntity<Boolean>> hasActiveSessions(Authentication authentication) {
+        String username = authentication.getName();
+        log.debug("Checking active sessions for user: {}", username);
+
+        return tokenManagementService.hasActiveTokens(username)
+                .map(ResponseEntity::ok)
+                .doOnSuccess(response ->
+                        log.debug("Active sessions check for user {}: {}", username, response.getBody()))
+                .defaultIfEmpty(ResponseEntity.ok(false));
+    }
+
+    @GetMapping("/sessions/count")
+    public Mono<ResponseEntity<Long>> getActiveSessionCount(Authentication authentication) {
+        String username = authentication.getName();
+        return tokenManagementService.getActiveSessionsCount(username)
+                .map(ResponseEntity::ok)
+                .doOnSuccess(response ->
+                        log.debug("Active session count for user {}: {}", username, response.getBody()));
+    }
+
+    @PostMapping("/validate/details")
+    public Mono<ResponseEntity<TokenValidationResult>> validateTokenWithDetails(
+            @RequestHeader("Authorization") String authHeader,
+            Authentication authentication) {
+
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            String token = authHeader.substring(7);
+            String username = authentication.getName();
+            return tokenManagementService.validateTokenWithDetails(token, username)
+                    .map(ResponseEntity::ok)
+                    .doOnError(error -> log.error("Token validation error: {}", error.getMessage()));
+        }
+
+        return Mono.just(ResponseEntity.badRequest().build());
     }
 }

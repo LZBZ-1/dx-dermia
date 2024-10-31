@@ -2,11 +2,11 @@ package com.lzbz.auth.controller;
 
 import com.lzbz.auth.dto.UserDTO;
 import com.lzbz.auth.service.UserService;
-import com.lzbz.auth.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
