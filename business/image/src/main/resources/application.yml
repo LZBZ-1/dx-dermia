@@ -1,0 +1,87 @@
+spring:
+  application:
+    name: image
+  r2dbc:
+    url: r2dbc:postgresql://34.44.97.230:5432/image_service?sslMode=require
+    username: postgres
+    password: IS3-2024-2
+    pool:
+      initial-size: 5
+      max-size: 20
+      max-idle-time: 30m
+      max-acquire-time: 30s
+      max-create-connection-time: 30s
+    properties:
+      ssl: true
+      sslMode: require
+  main:
+    web-application-type: reactive
+  codec:
+    max-in-memory-size: 20MB
+  cloud:
+    gcp:
+      credentials:
+        location: file:${gcp.storage.credentials-path}
+
+server:
+  port: 8082
+
+jwt:
+  secret: J6q+WwwaDNkDEppfNIYmFIy4cOr3wlBPLGTOgM1Wsug=
+  expiration: 86400000
+
+auth:
+  service:
+    url: http://localhost:8080
+
+gcp:
+  storage:
+    bucket-name: dx-derm-ia-bucket
+    credentials-path: ${GCP_CREDENTIALS_PATH:D:/dx-dermia-archives/dx-derm-ia-e73e2f95527c.json}
+    images-folder: images/
+    thumbnail-folder: thumbnail/
+
+image:
+  thumbnail:
+    width: 200
+    height: 200
+    quality: 0.7
+
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: ${EUREKA_SERVER:http://localhost:8761/eureka}
+    register-with-eureka: true
+    healthcheck:
+      enabled: true
+    fetch-registry: true
+  instance:
+    prefer-ip-address: true
+    hostname: ${HOSTNAME:localhost}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+  endpoint:
+    health:
+      show-details: always
+    env:
+      enabled: true
+
+logging:
+  level:
+    root: WARN
+    com.lzbz.image: DEBUG
+    com.lzbz.auth: INFO
+    org.springframework:
+      r2dbc: WARN
+      security: ERROR
+    io:
+      r2dbc.postgresql: WARN
+      netty: WARN
+    reactor.netty: WARN
+    com.google.cloud.storage: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
